@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  sts-fintech-attendance:
+    build: .
+    container_name: sts-fintech-attendance
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=sts-fintech-production-secret-key-2024
+      - PORT=5000
+    volumes:
+      - ./backend/attendance.db:/app/backend/attendance.db
