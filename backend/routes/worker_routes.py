@@ -223,9 +223,21 @@ def create_worker():
         """, (employee_code, full_name, dept_key, phone, joining_date, now_str, now_str))
         worker_id = cursor.lastrowid
 
-        # If employee_code was omitted, generate sequential default code
+        # If employee_code was omitted, generate sequential STS code e.g. 26STS007
         if not employee_code:
-            gen_code = f"EMP-{worker_id + 1000}"
+            cursor.execute("SELECT employee_code FROM workers WHERE employee_code LIKE '26STS%'")
+            codes = cursor.fetchall()
+            max_num = 6
+            for c in codes:
+                code_val = c['employee_code']
+                if code_val and code_val.startswith('26STS'):
+                    try:
+                        n = int(code_val[5:])
+                        if n > max_num:
+                            max_num = n
+                    except ValueError:
+                        pass
+            gen_code = f"26STS{max_num + 1:03d}"
             cursor.execute("UPDATE workers SET employee_code = ? WHERE id = ?", (gen_code, worker_id))
 
         conn.commit()

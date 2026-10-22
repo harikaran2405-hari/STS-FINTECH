@@ -374,14 +374,11 @@ export default function DailyAttendancePage({ initialDate, initialDepartment }) 
                                 </div>
                                 <div>
                                   <p className="font-bold text-slate-900 leading-tight">{worker.full_name}</p>
-                                  <div className="flex items-center space-x-2 mt-0.5 text-[11px] text-slate-500">
-                                    <span className="font-mono font-semibold text-blue-600">{worker.worker_code}</span>
-                                    {worker.employee_code && (
-                                      <>
-                                        <span>&bull;</span>
-                                        <span>{worker.employee_code}</span>
-                                      </>
-                                    )}
+                                  <div className="flex items-center space-x-2 mt-0.5 text-[11px]">
+                                    <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                      {worker.employee_code || worker.worker_code}
+                                    </span>
+                                    <span className="text-slate-400 font-mono text-[10px]">{worker.worker_code}</span>
                                   </div>
                                 </div>
                               </div>
@@ -453,6 +450,20 @@ export default function DailyAttendancePage({ initialDate, initialDepartment }) 
                                     >
                                       <LogIn className="w-3.5 h-3.5" />
                                       <span>Check In</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setCurrentEditRecord({
+                                          ...worker,
+                                          attendance_date: selectedDate,
+                                          time_in: `${selectedDate}T09:00:00+05:30`
+                                        });
+                                        setEditModalOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+                                      title="Manual Check In / Custom Time Entry"
+                                    >
+                                      <Edit3 className="w-4 h-4 text-slate-700" />
                                     </button>
                                     <button
                                       onClick={() => handleMarkLeave(worker)}

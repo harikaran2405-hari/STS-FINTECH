@@ -261,8 +261,14 @@ export default function WorkersPage() {
                     </td>
 
                     {/* Employee Code */}
-                    <td className="py-3.5 px-3 font-mono font-medium text-slate-700">
-                      {worker.employee_code || <span className="text-slate-400 italic">None</span>}
+                    <td className="py-3.5 px-3">
+                      {worker.employee_code ? (
+                        <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          {worker.employee_code}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">None</span>
+                      )}
                     </td>
 
                     {/* Department */}

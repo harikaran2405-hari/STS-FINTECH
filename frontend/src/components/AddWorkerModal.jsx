@@ -139,7 +139,7 @@ export default function AddWorkerModal({ isOpen, onClose, onSuccess, initialDepa
                 <Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="e.g. EMP-1006 (Auto if blank)"
+                  placeholder="e.g. 26STS007 (Auto if blank)"
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value)}
                   className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"

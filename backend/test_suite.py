@@ -51,15 +51,26 @@ class AttendanceSystemTestCase(unittest.TestCase):
         self.assertIn('Sahithyashwari', interns_names)
         self.assertIn('Ranjith', interns_names)
         self.assertIn('Lingesh', aiml_names)
+        self.assertIn('Balaji Sai', aiml_names)
         self.assertIn('Santhosh', backend_names)
 
-        # 3. Verify no demo workers remain
+        # 3. Verify STS Employee Codes
+        all_workers_list = [w for d in depts_data for w in d['workers']]
+        code_by_name = {w['full_name']: w['employee_code'] for w in all_workers_list}
+        self.assertEqual(code_by_name.get('Santhosh'), '26STS001')
+        self.assertEqual(code_by_name.get('Balaji Sai'), '26STS002')
+        self.assertEqual(code_by_name.get('Harikaran'), '26STS003')
+        self.assertEqual(code_by_name.get('Sahithyashwari'), '26STS004')
+        self.assertEqual(code_by_name.get('Ranjith'), '26STS005')
+        self.assertEqual(code_by_name.get('Lingesh'), '26STS006')
+
+        # 4. Verify no demo workers remain
         all_workers = interns_names + aiml_names + backend_names
         self.assertNotIn('Aarav Patel', all_workers)
         self.assertNotIn('Priya Verma', all_workers)
         self.assertNotIn('Sunil Chauhan', all_workers)
 
-        print("[OK] 3 department groups and 5 persistent employees verified without demo names.")
+        print("[OK] 3 department groups and 6 persistent STS employees verified.")
 
     def test_03_add_employee_per_department(self):
         """Verify adding an employee to each department works and validates departments."""

@@ -49,32 +49,56 @@ def seed_database():
         cursor.execute("UPDATE managers SET name = 'Mahesh Kumar', email = 'manager@stsfintech.com' WHERE id = ?", (manager_id,))
         print(f"Manager verified with ID {manager_id} (Mahesh Kumar).")
 
-    # 2. Seed Initial Persistent Employees (Requirement 4)
+    # 2. Seed Initial Persistent Employees with STS Employee IDs
     initial_employees = [
-        # Department 1: Interns
-        ('EMP-1001', 'Harikaran', 'interns', '+91 98765 10001', '2026-10-01', 'Active'),
-        ('EMP-1002', 'Sahithyashwari', 'interns', '+91 98765 10002', '2026-10-01', 'Active'),
-        ('EMP-1003', 'Ranjith', 'interns', '+91 98765 10003', '2026-10-01', 'Active'),
-        # Department 2: AI/ML, Frontend Engineer
-        ('EMP-1004', 'Lingesh', 'ai_ml_frontend', '+91 98765 10004', '2026-09-15', 'Active'),
-        # Department 3: Backend Engineer
-        ('EMP-1005', 'Santhosh', 'backend', '+91 98765 10005', '2026-09-01', 'Active'),
+        # Department: Backend Engineer
+        ('26STS001', 'Santhosh', 'backend', '+91 98765 10001', '2026-09-01', 'Active', 'Senior Backend Engineer'),
+        # Department: AI/ML, Frontend Engineer
+        ('26STS002', 'Balaji Sai', 'ai_ml_frontend', '+91 98765 10002', '2026-09-15', 'Active', 'AI/ML & Frontend Engineer'),
+        ('26STS006', 'Lingesh', 'ai_ml_frontend', '+91 98765 10006', '2026-09-15', 'Active', 'AI/ML & Frontend Engineer'),
+        # Department: Interns
+        ('26STS003', 'Harikaran', 'interns', '+91 98765 10003', '2026-10-01', 'Active', 'Software Intern'),
+        ('26STS004', 'Sahithyashwari', 'interns', '+91 98765 10004', '2026-10-01', 'Active', 'Software Intern'),
+        ('26STS005', 'Ranjith', 'interns', '+91 98765 10005', '2026-10-01', 'Active', 'Software Intern'),
     ]
 
+    # Clean up test artifact workers if any
+    cursor.execute("""
+        DELETE FROM workers 
+        WHERE full_name LIKE '%New Intern Candidate%' 
+           OR full_name LIKE '%New Backend Developer%' 
+           OR full_name LIKE '%Short Password%'
+           OR full_name LIKE '%Invalid Dept%'
+           OR employee_code LIKE 'EMP-TEST-%'
+    """)
+
     emp_ids = {}
-    for code, name, dept, phone, join_date, status in initial_employees:
-        cursor.execute("SELECT id FROM workers WHERE full_name = ? OR employee_code = ?", (name, code))
+    for code, name, dept, phone, join_date, status, role in initial_employees:
+        # Match by name, common alias, or code
+        cursor.execute("""
+            SELECT id FROM workers 
+            WHERE full_name = ? 
+               OR employee_code = ? 
+               OR (full_name LIKE 'Hari%' AND ? = '26STS003')
+               OR (full_name LIKE 'Sahithya%' AND ? = '26STS004')
+        """, (name, code, code, code))
         row = cursor.fetchone()
+        
         if not row:
             cursor.execute("""
                 INSERT INTO workers (employee_code, full_name, department, phone, joining_date, employment_status, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (code, name, dept, phone, join_date, status, now_str, now_str))
             emp_ids[name] = cursor.lastrowid
-            print(f"Inserted employee {name} ({dept}) ID WKR-{cursor.lastrowid:04d}")
+            print(f"Inserted employee {name} ({dept}) ID {code}")
         else:
             emp_ids[name] = row['id']
-            cursor.execute("UPDATE workers SET department = ? WHERE id = ?", (dept, row['id']))
+            cursor.execute("""
+                UPDATE workers 
+                SET employee_code = ?, full_name = ?, department = ?, employment_status = 'Active' 
+                WHERE id = ?
+            """, (code, name, dept, row['id']))
+            print(f"Updated employee {name} ({dept}) with official code {code}")
 
     print(f"Verified initial employees. Total: {len(emp_ids)}")
 

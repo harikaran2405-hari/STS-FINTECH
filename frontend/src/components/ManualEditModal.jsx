@@ -67,7 +67,9 @@ export default function ManualEditModal({ isOpen, onClose, record, onSuccess }) 
       };
 
       const payload = {
-        attendance_id: record.attendance_id,
+        attendance_id: record.attendance_id || null,
+        worker_id: record.worker_id,
+        date: record.attendance_date,
         time_in: toIstIso(timeIn),
         time_out: timeOut ? toIstIso(timeOut) : null,
         status: status,

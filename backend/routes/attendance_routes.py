@@ -339,8 +339,9 @@ def check_in():
                 'message': f"Worker {worker['full_name']} already has a completed attendance record for {date}."
             }), 409
 
-    # 3. Official backend timestamp in IST
-    server_time_in = now_ist_iso()
+    # 3. Official backend timestamp in IST (or manual time if specified)
+    manual_time_in = (data.get('time_in') or '').strip()
+    server_time_in = manual_time_in if manual_time_in else now_ist_iso()
     manager_id = g.current_manager['id']
 
     try:
@@ -410,8 +411,9 @@ def check_out():
             'message': f"Worker {att['full_name']} has already checked out at {format_time_display(att['time_out'])}."
         }), 409
 
-    # Generate official checkout timestamp in IST
-    server_time_out = now_ist_iso()
+    # Generate checkout timestamp in IST (or manual time if specified)
+    manual_time_out = (data.get('time_out') or '').strip()
+    server_time_out = manual_time_out if manual_time_out else now_ist_iso()
     minutes = calculate_working_minutes(att['time_in'], server_time_out)
     now_str = server_time_out
     manager_id = g.current_manager['id']
@@ -448,35 +450,99 @@ def manual_edit_attendance():
     """
     data = request.get_json() or {}
     attendance_id = data.get('attendance_id')
+    worker_id = data.get('worker_id')
+    date = (data.get('date') or '').strip() or today_ist_str()
     new_time_in = (data.get('time_in') or '').strip()
     new_time_out = (data.get('time_out') or '').strip() or None
     new_status = (data.get('status') or 'PRESENT').strip()
     reason = (data.get('reason') or '').strip()
 
-    if not attendance_id:
-        return jsonify({'success': False, 'message': 'Attendance ID is required.'}), 400
+    if not attendance_id and not worker_id:
+        return jsonify({'success': False, 'message': 'Attendance ID or Worker ID is required.'}), 400
 
     if not reason:
-        return jsonify({'success': False, 'message': 'A reason for manual correction is strictly required for the audit trail.'}), 400
+        return jsonify({'success': False, 'message': 'A reason for manual attendance correction is strictly required for the audit trail.'}), 400
 
     if not new_time_in:
-        return jsonify({'success': False, 'message': 'Time In is required.'}), 400
+        return jsonify({'success': False, 'message': 'Time In timestamp is required.'}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT a.*, w.full_name, w.employee_code 
-        FROM attendance a 
-        JOIN workers w ON a.worker_id = w.id 
-        WHERE a.id = ?
-    """, (attendance_id,))
-    old_row = cursor.fetchone()
+    old_row = None
+    if attendance_id:
+        cursor.execute("""
+            SELECT a.*, w.full_name, w.employee_code 
+            FROM attendance a 
+            JOIN workers w ON a.worker_id = w.id 
+            WHERE a.id = ?
+        """, (attendance_id,))
+        old_row = cursor.fetchone()
+    elif worker_id:
+        cursor.execute("""
+            SELECT a.*, w.full_name, w.employee_code 
+            FROM attendance a 
+            JOIN workers w ON a.worker_id = w.id 
+            WHERE a.worker_id = ? AND a.attendance_date = ?
+        """, (worker_id, date))
+        old_row = cursor.fetchone()
+        if old_row:
+            attendance_id = old_row['id']
 
+    now_str = now_ist_iso()
+    manager_id = g.current_manager['id']
+
+    # Case 1: Brand new manual attendance creation for worker on this date
     if not old_row:
-        conn.close()
-        return jsonify({'success': False, 'message': 'Attendance record not found.'}), 404
+        cursor.execute("SELECT id, full_name, employee_code FROM workers WHERE id = ?", (worker_id,))
+        worker_rec = cursor.fetchone()
+        if not worker_rec:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Worker not found.'}), 404
 
+        minutes = None
+        if new_time_in and new_time_out:
+            minutes = calculate_working_minutes(new_time_in, new_time_out)
+
+        new_values = {
+            'worker_id': worker_id,
+            'attendance_date': date,
+            'time_in': new_time_in,
+            'time_out': new_time_out,
+            'total_working_minutes': minutes,
+            'status': new_status,
+            'created_at': now_str
+        }
+
+        try:
+            cursor.execute("""
+                INSERT INTO attendance (
+                    worker_id, attendance_date, time_in, time_out, total_working_minutes,
+                    status, created_at, updated_at, created_by_manager_id, updated_by_manager_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (worker_id, date, new_time_in, new_time_out, minutes, new_status, now_str, now_str, manager_id, manager_id))
+            attendance_id = cursor.lastrowid
+
+            cursor.execute("""
+                INSERT INTO attendance_audit_logs (attendance_id, manager_id, action, old_values, new_values, reason, created_at)
+                VALUES (?, ?, 'MANUAL_CREATE', '{}', ?, ?, ?)
+            """, (attendance_id, manager_id, json.dumps(new_values), reason, now_str))
+
+            conn.commit()
+            cursor.execute("SELECT * FROM attendance WHERE id = ?", (attendance_id,))
+            created_rec = enrich_attendance_record(dict(cursor.fetchone()))
+            conn.close()
+
+            return jsonify({
+                'success': True,
+                'message': f"Manual attendance record created for {worker_rec['full_name']}.",
+                'attendance': created_rec
+            }), 201
+        except Exception as e:
+            conn.close()
+            return jsonify({'success': False, 'message': f'Failed to create manual attendance: {str(e)}'}), 500
+
+    # Case 2: Updating existing attendance record
     old_values = {
         'time_in': old_row['time_in'],
         'time_out': old_row['time_out'],
@@ -489,9 +555,6 @@ def manual_edit_attendance():
     minutes = None
     if new_time_in and new_time_out:
         minutes = calculate_working_minutes(new_time_in, new_time_out)
-
-    now_str = now_ist_iso()
-    manager_id = g.current_manager['id']
 
     new_values = {
         'time_in': new_time_in,
